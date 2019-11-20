@@ -132,8 +132,10 @@ soft_thresholding(z::Float64, ζ::Float64) = sign(z)*max(abs(z)-ζ, 0);
     square_vandermonde_matrix(λ::FloatVector)
 
 Construct square vandermonde matrix on the basis of a vector of eigenvalues λ.
+
+Note: the eigenvalues are ordered in a convenient way for `eigvals_to_coeff`.
 """
-square_vandermonde_matrix(λ::FloatVector) = hcat(ones(length(λ)), [λ.^i for i=1:length(λ)-1]...);
+square_vandermonde_matrix(λ::FloatVector) = λ'.^collect(length(λ)-1:-1:0);
 
 #=
 --------------------------------------------------------------------------------------------------------------------------------
@@ -145,21 +147,25 @@ Parameter transformations
     eigvals_to_coeff(λ::FloatVector)
 
 Compute the companion form corresponding to a vector of eigenvalues and returns the first row.
+
+Note: this approach returns a non-zero vector of coefficients if the elements of λ are unique (distinct eigenvalues).
+
+# Arguments
+- `λ`: Vector of eigenvalues
+- `k`: Number of coefficients to retrieve from the companion form matrix (default: 1)
 """
-function eigvals_to_coeff(λ::FloatVector)
+function eigvals_to_coeff(λ::FloatVector; k::Int64=1)
 
     try
-        # Companion form
+        # Vandermonde matrix
         V = square_vandermonde_matrix(λ);
 
         # Return coefficients
-        return reverse(inv(V)*Diagonal(λ)*V[:,end]);
-
-        #=
-        TODO:
-            - This is a bit lazy, it can be improved.
-            - This method does not allow to have two identical eigenvalues.
-        =#
+        if k == 1
+            return permutedims(V[1,:])*Diagonal(λ)*inv(V);
+        else
+            return V[1:k,:]*Diagonal(λ)*inv(V); # TODO: this line has not been tested properly, since there is not yet support for multivariate models.
+        end
 
     catch err
         if isa(err, SingularException)
